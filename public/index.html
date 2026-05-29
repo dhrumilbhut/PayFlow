@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayFlow Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <h1 class="logo">⚡ PayFlow</h1>
+      <nav class="nav">
+        <button class="nav-btn active" data-section="dashboard">Dashboard</button>
+        <button class="nav-btn" data-section="payments">Payments</button>
+        <button class="nav-btn" data-section="health">Health</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ── Dashboard Section ────────────────────────────── -->
+    <section id="section-dashboard" class="section active">
+      <div class="section-header">
+        <h2>Create Payment</h2>
+        <p class="subtitle">Submit a new payment for processing. Use the same idempotency key to safely retry.</p>
+      </div>
+
+      <div class="card-grid">
+        <div class="card">
+          <h3>New Payment</h3>
+          <form id="create-payment-form">
+            <div class="form-group">
+              <label for="amount">Amount ($)</label>
+              <input
+                type="number"
+                id="amount"
+                name="amount"
+                placeholder="100.00"
+                min="0.01"
+                step="0.01"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="idempotencyKey">Idempotency Key</label>
+              <div class="input-row">
+                <input
+                  type="text"
+                  id="idempotencyKey"
+                  name="idempotencyKey"
+                  placeholder="order-123-payment-1"
+                  required
+                />
+                <button type="button" class="btn btn-secondary btn-sm" id="gen-key">Generate</button>
+              </div>
+              <small>Use the same key to safely retry without creating duplicates.</small>
+            </div>
+            <button type="submit" class="btn btn-primary" id="submit-btn">
+              Create Payment
+            </button>
+          </form>
+          <div id="create-result" class="result-box hidden"></div>
+        </div>
+
+        <div class="card">
+          <h3>Quick Stats</h3>
+          <div id="stats-grid" class="stats-grid">
+            <div class="stat-box"><span class="stat-value" id="stat-total">–</span><span class="stat-label">Total</span></div>
+            <div class="stat-box pending"><span class="stat-value" id="stat-pending">–</span><span class="stat-label">Pending</span></div>
+            <div class="stat-box processing"><span class="stat-value" id="stat-processing">–</span><span class="stat-label">Processing</span></div>
+            <div class="stat-box success"><span class="stat-value" id="stat-success">–</span><span class="stat-label">Success</span></div>
+            <div class="stat-box failed"><span class="stat-value" id="stat-failed">–</span><span class="stat-label">Failed</span></div>
+          </div>
+          <button class="btn btn-secondary mt-1" id="refresh-stats">↻ Refresh</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Payments Section ──────────────────────────────── -->
+    <section id="section-payments" class="section">
+      <div class="section-header">
+        <h2>Payments</h2>
+        <div class="section-actions">
+          <select id="status-filter" class="select">
+            <option value="">All Statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="PROCESSING">Processing</option>
+            <option value="SUCCESS">Success</option>
+            <option value="FAILED">Failed</option>
+          </select>
+          <button class="btn btn-secondary" id="refresh-payments">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="table" id="payments-table">
+          <thead>
+            <tr>
+              <th>Payment ID</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Retries</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="payments-tbody">
+            <tr><td colspan="6" class="empty">Loading payments...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Health Section ────────────────────────────────── -->
+    <section id="section-health" class="section">
+      <div class="section-header">
+        <h2>System Health</h2>
+        <button class="btn btn-secondary" id="refresh-health">↻ Refresh</button>
+      </div>
+      <div id="health-content" class="card-grid">
+        <p>Loading health status...</p>
+      </div>
+    </section>
+
+    <!-- ── Timeline Modal ─────────────────────────────────── -->
+    <div id="timeline-modal" class="modal hidden">
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Payment Timeline</h3>
+          <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <p class="modal-payment-id" id="modal-payment-id"></p>
+        <div id="timeline-content" class="timeline"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "name": "payflow",
+  "version": "1.0.0",
+  "description": "Production-grade resilient payment processing system",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:worker": "node src/workers/paymentWorker.js",
+    "dev": "nodemon src/server.js",
+    "dev:worker": "nodemon src/workers/paymentWorker.js",
+    "db:migrate": "node src/database/migrate.js",
+    "db:rollback": "node src/database/migrate.js --rollback",
+    "db:rollback:steps": "node src/database/migrate.js --rollback --steps=",
+    "db:status": "node src/database/migrate.js --status",
+    "db:seed": "node src/database/seed.js",
+    "db:reset": "node src/database/migrate.js --reset",
+    "test": "jest --runInBand --forceExit",
+    "test:unit": "jest tests/unit --runInBand --forceExit",
+    "test:integration": "jest tests/integration --runInBand --forceExit",
+    "test:coverage": "jest --coverage --runInBand --forceExit",
+    "lint": "eslint src/ tests/ --ext .js",
+    "lint:fix": "eslint src/ tests/ --ext .js --fix"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "ioredis": "^5.3.2",
+    "opossum": "^8.1.0",
+    "pg": "^8.11.3",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "swagger-ui-express": "^5.0.0",
+    "uuid": "^9.0.0",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/workers/paymentWorker.js"
+    ]
+  }
+}

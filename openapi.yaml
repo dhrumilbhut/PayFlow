@@ -1,0 +1,414 @@
+openapi: 3.0.3
+info:
+  title: PayFlow API
+  description: |
+    Production-grade resilient payment processing system.
+
+    ## Key Features
+    - **Idempotency**: Use `idempotencyKey` to safely retry payment creation
+    - **Async Processing**: Payments are queued and processed asynchronously via RabbitMQ
+    - **Webhooks**: Gateway sends webhook callbacks; system handles duplicates and out-of-order delivery
+    - **Retry Logic**: Exponential backoff with configurable max retries
+    - **Circuit Breaker**: Fast-fail when gateway is down
+
+    ## Payment Lifecycle
+    ```
+    PENDING → PROCESSING → SUCCESS
+                        ↘ RETRY_SCHEDULED → PROCESSING (again)
+                        ↘ FAILED
+    ```
+    Note: `RETRY_SCHEDULED` is an internal state mapped to `PROCESSING` in API responses.
+  version: 1.0.0
+  contact:
+    name: PayFlow Engineering
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Payments
+    description: Payment creation and management
+  - name: Webhooks
+    description: Gateway callback handling
+  - name: Health
+    description: Service health and dependency checks
+
+paths:
+  /payments:
+    post:
+      tags: [Payments]
+      summary: Create a payment
+      description: |
+        Create a new payment. This endpoint is **idempotent** — submitting the same
+        `idempotencyKey` twice returns the original payment without creating a duplicate.
+
+        The payment is created synchronously, then queued for async processing.
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+            examples:
+              basic:
+                summary: Basic payment
+                value:
+                  amount: 100.50
+                  idempotencyKey: order-123-payment-1
+      responses:
+        '201':
+          description: Payment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '200':
+          description: Existing payment returned (idempotent — key already used)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    get:
+      tags: [Payments]
+      summary: List payments
+      operationId: listPayments
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, PROCESSING, SUCCESS, FAILED]
+          description: Filter by payment status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+                  count:
+                    type: integer
+
+  /payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Get a payment by ID
+      operationId: getPayment
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /payments/{id}/events:
+    get:
+      tags: [Payments]
+      summary: Get payment event timeline
+      description: Returns the full audit trail for a payment, ordered chronologically.
+      operationId: getPaymentEvents
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Payment event timeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentEvent'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /webhook:
+    post:
+      tags: [Webhooks]
+      summary: Receive gateway webhook
+      description: |
+        Endpoint for receiving payment status callbacks from the gateway.
+
+        **Idempotency**: Duplicate webhooks (same `eventId`) are safely ignored.
+
+        **Conflict resolution**:
+        - Webhook SUCCESS after payment FAILED → reconcile to SUCCESS
+        - Webhook FAILED after payment SUCCESS → ignore
+        - Duplicate webhook → acknowledge without reprocessing
+      operationId: receiveWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        '200':
+          description: Webhook acknowledged (always returns 200 to prevent gateway retries)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  action:
+                    type: string
+                    enum: [UPDATED, CONFIRMED, RECONCILED, IGNORED, DEFERRED]
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness check
+      description: Fast check — responds immediately without checking dependencies.
+      operationId: healthLiveness
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /health/dependencies:
+    get:
+      tags: [Health]
+      summary: Readiness check
+      description: Checks all external dependencies (PostgreSQL, Redis, RabbitMQ).
+      operationId: healthDependencies
+      responses:
+        '200':
+          description: All dependencies healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: One or more dependencies unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  parameters:
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Payment UUID
+
+  schemas:
+    CreatePaymentRequest:
+      type: object
+      required: [amount, idempotencyKey]
+      properties:
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+          maximum: 999999.99
+          example: 100.50
+          description: Payment amount in the default currency
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          example: order-123-payment-1
+          description: Unique key to prevent duplicate payments
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, SUCCESS, FAILED]
+        idempotencyKey:
+          type: string
+        retryCount:
+          type: integer
+        maxRetries:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaymentResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Payment'
+
+    PaymentEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum:
+            - PAYMENT_CREATED
+            - PAYMENT_PROCESSING_STARTED
+            - GATEWAY_REQUEST_SENT
+            - GATEWAY_SUCCESS
+            - GATEWAY_FAILURE
+            - GATEWAY_TIMEOUT
+            - PAYMENT_RETRY_SCHEDULED
+            - WEBHOOK_RECEIVED
+            - PAYMENT_SUCCESS
+            - PAYMENT_FAILED
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+
+    WebhookPayload:
+      type: object
+      required: [eventId, paymentId, status]
+      properties:
+        eventId:
+          type: string
+          description: Unique ID for this webhook event (used for deduplication)
+        paymentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [SUCCESS, FAILED]
+        timestamp:
+          type: string
+          format: date-time
+        gatewayReference:
+          type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+                enum: [ok, error]
+              error:
+                type: string
+        circuitBreaker:
+          type: object
+          properties:
+            state:
+              type: string
+              enum: [CLOSED, OPEN, HALF_OPEN]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimitError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
