@@ -290,6 +290,8 @@ rabbitmq        → Docker image (rabbitmq:3.13-management-alpine)
 
 Migrations run automatically on every API deploy via the start command.
 
+![Railway Deployment](docs/screenshots/railway-deployment.png)
+
 ---
 
 ## 🛠️ Tech Stack
