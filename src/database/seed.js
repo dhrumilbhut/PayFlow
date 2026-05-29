@@ -21,14 +21,11 @@ require('dotenv').config();
 const { Pool } = require('pg');
 const config = require('../config');
 
-const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  database: config.db.name,
-  user: config.db.user,
-  password: config.db.password,
-  connectionTimeoutMillis: 10000,
-});
+const poolConfig = config.db.connectionString
+  ? { connectionString: config.db.connectionString, ssl: { rejectUnauthorized: false } }
+  : { host: config.db.host, port: config.db.port, database: config.db.name, user: config.db.user, password: config.db.password };
+
+const pool = new Pool({ ...poolConfig, connectionTimeoutMillis: 10000 });
 
 const GREEN  = '\x1b[32m';
 const CYAN   = '\x1b[36m';

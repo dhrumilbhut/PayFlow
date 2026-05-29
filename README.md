@@ -2,6 +2,8 @@
 
 > A production-grade, resilient payment processing system built with Node.js, PostgreSQL, RabbitMQ, and Redis — demonstrating real-world distributed systems patterns.
 
+🌐 **Live Demo:** [payflow.dhrumilbhut.com](https://payflow.dhrumilbhut.com)
+
 ---
 
 ![Dashboard](docs/screenshots/dashboard.png)
@@ -55,7 +57,17 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Live Demo
+
+| Service | URL |
+|---------|-----|
+| 🖥️ Dashboard | [payflow.dhrumilbhut.com](https://payflow.dhrumilbhut.com) |
+| 📖 Swagger UI | [payflow.dhrumilbhut.com/swagger](https://payflow.dhrumilbhut.com/swagger) |
+| 🩺 Health | [payflow.dhrumilbhut.com/health/dependencies](https://payflow.dhrumilbhut.com/health/dependencies) |
+
+---
+
+## 🛠️ Local Development
 
 **Prerequisites:** Docker Desktop
 
@@ -264,6 +276,22 @@ tests/
 
 ---
 
+## ☁️ Deployment
+
+Deployed on **Railway** with 5 services on a private internal network:
+
+```
+payflow-api     → node src/server.js          (custom domain)
+payflow-worker  → node src/workers/paymentWorker.js
+postgres        → Railway managed plugin
+redis           → Railway managed plugin
+rabbitmq        → Docker image (rabbitmq:3.13-management-alpine)
+```
+
+Migrations run automatically on every API deploy via the start command.
+
+---
+
 ## 🛠️ Tech Stack
 
-`Node.js` · `Express` · `PostgreSQL` · `RabbitMQ` · `Redis` · `Opossum` · `Pino` · `Jest` · `Docker`
+`Node.js` · `Express` · `PostgreSQL` · `RabbitMQ` · `Redis` · `Opossum` · `Pino` · `Jest` · `Docker` · `Railway`
