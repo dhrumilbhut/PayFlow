@@ -45,14 +45,12 @@ const stepsArg = args.find((a) => a.startsWith('--steps='));
 const ROLLBACK_STEPS = stepsArg ? parseInt(stepsArg.split('=')[1], 10) : 1;
 
 // ── Database connection ───────────────────────────────────────────────────────
-const pool = new Pool({
-  host:                    config.db.host,
-  port:                    config.db.port,
-  database:                config.db.name,
-  user:                    config.db.user,
-  password:                config.db.password,
-  connectionTimeoutMillis: 10000,
-});
+// DATABASE_URL (Railway / Heroku) takes priority over individual vars
+const poolConfig = config.db.connectionString
+  ? { connectionString: config.db.connectionString, ssl: { rejectUnauthorized: false } }
+  : { host: config.db.host, port: config.db.port, database: config.db.name, user: config.db.user, password: config.db.password };
+
+const pool = new Pool({ ...poolConfig, connectionTimeoutMillis: 10000 });
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
@@ -312,7 +310,10 @@ async function main() {
     process.exit(1);
   }
 
-  log(C.dim(`\n  Host: ${config.db.host}:${config.db.port}/${config.db.name}`));
+  const connDisplay = config.db.connectionString
+    ? config.db.connectionString.replace(/:\/\/[^@]+@/, '://***@') // hide credentials
+    : `${config.db.host}:${config.db.port}/${config.db.name}`;
+  log(C.dim(`\n  Host: ${connDisplay}`));
 
   const client = await pool.connect();
 
