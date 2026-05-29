@@ -25,3 +25,4 @@ EXPOSE 3000
 
 # dumb-init is the entrypoint; CMD is what dumb-init runs
 ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "src/server.js"]
