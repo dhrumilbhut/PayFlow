@@ -82,8 +82,10 @@ const log = (msg) => process.stdout.write(msg + '\n');
 function parseMigrationFile(filepath) {
   const content = fs.readFileSync(filepath, 'utf8');
 
-  const upMarker   = /--\s*migrate:up\s*/i;
-  const downMarker = /--\s*migrate:down\s*/i;
+  // $ with m flag: only match lines that end after the marker (no trailing content)
+  // Prevents matching description comments like: "--   migrate:up   → ..."
+  const upMarker   = /--\s*migrate:up\s*$/im;
+  const downMarker = /--\s*migrate:down\s*$/im;
 
   const upIndex   = content.search(upMarker);
   const downIndex = content.search(downMarker);
