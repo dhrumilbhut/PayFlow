@@ -31,7 +31,7 @@
 │                        Architecture                         │
 │                                                             │
 │  ┌─────────┐   ┌───────────────────────────────────────┐    │
-│  │ Browser │──▶│  API  (Express)                       │    │
+│  │ Browser │──>│  API  (Express)                       │    │
 │  └─────────┘   │  REST · Rate limiting · Validation    │    │
 │                └─────────────────┬─────────────────────┘    │
 │                                  │ publish                  │
@@ -39,7 +39,7 @@
 │          ┌───────────────────────────────────────────┐      │
 │          │  RabbitMQ                                 │      │
 │          │  ├─ payment.process.queue                 │      │
-│          │  └─ payment.retry.queue  ◀── DLX backoff  │      │
+│          │  └─ payment.retry.queue  <── DLX backoff  │      │
 │          └──────────────────┬────────────────────────┘      │
 │                             │ consume                       │
 │                             ▼                               │
