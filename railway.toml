@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "sh -c 'node src/database/migrate.js && node src/server.js'"
+startCommand = "sh -c 'if [ \"$RAILWAY_SERVICE_NAME\" = \"payflow-worker\" ]; then node src/workers/paymentWorker.js; else node src/database/migrate.js && node src/server.js; fi'"
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
